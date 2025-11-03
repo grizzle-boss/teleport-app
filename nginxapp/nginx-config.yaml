@@ -1,0 +1,28 @@
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: custom-nginx-config
+      namespace: teleport-app 
+    data:
+      nginx.conf: |-
+        user nginx;
+        worker_processes auto;
+        events {
+            worker_connections 1024;
+        }
+        http {
+            include /etc/nginx/mime.types;
+            default_type application/octet-stream;
+            sendfile on;
+            keepalive_timeout 65;
+         
+            server {
+                listen 443 ssl;
+                server_name yourdomain.com;
+
+                 root /usr/share/nginx/html;
+
+                ssl_certificate /etc/nginx/ssl/tls.crt;
+                ssl_certificate_key /etc/nginx/ssl/tls.key;
+                }
+            }
