@@ -3,7 +3,7 @@ kind: Ingress
 metadata:
   name: teleport-ingress-cm
   annotations: 
-    cert-manager.io/issuer: "letsencrypt-staging"
+    cert-manager.io/issuer: "duckdns-letsencrypt-staging"
 spec:
   ingressClassName: nginx
   tls:
