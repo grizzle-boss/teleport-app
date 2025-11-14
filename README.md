@@ -8,9 +8,9 @@
 sudo vi /boot/firmware/cmdline.txt
 ```
 
-```
+<code>
 net.ifnames=0 dwc\_otg.lpm\_enable=0 console=serial0,115200 console=tty1 root=LABEL=writable rootfstype=ext4 elevator=deadline rootwait fixrtc cgroup\_memory=1 cgroup\_enable=memory ipv6.disable=1 
-```
+</code>
 
 ### Set Static IP
 
