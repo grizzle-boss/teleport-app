@@ -1,188 +1,153 @@
 # Deploying Automated Nginx apps on Kubernetes
 
-# Installing kubeadm on raspberry pi (ubuntu 20.04 arm64)
+## Installing kubeadm on raspberry pi (ubuntu 20.04 arm64)
 
-## Update kernel flags for containers
+### Update kernel flags for containers
 
-| sudo vi /boot/firmware/cmdline.txt |
-| :---- |
+```sudo vi /boot/firmware/cmdline.txt
+```
 
-| net.ifnames=0 dwc\_otg.lpm\_enable=0 console=serial0,115200 console=tty1 root=LABEL=writable rootfstype=ext4 elevator=deadline rootwait fixrtc cgroup\_memory=1 cgroup\_enable=memory ipv6.disable=1 |
-| :---- |
+``` net.ifnames=0 dwc\_otg.lpm\_enable=0 console=serial0,115200 console=tty1 root=LABEL=writable rootfstype=ext4 elevator=deadline rootwait fixrtc cgroup\_memory=1 cgroup\_enable=memory ipv6.disable=1 ```
 
-## Set Static IP
+### Set Static IP
 
-| sudo vi /etc/netplan/50-cloud-init.yaml |
-| :---- |
+```sudo vi /etc/netplan/50-cloud-init.yaml
+```
 
-| \# This file is generated from information provided by the datasource.  Changes\# to it will not persist across an instance reboot.  To disable cloud-init's\# network configuration capabilities, write a file\# /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg with the following:\#\# network: {config: disabled}network:    ethernets:        eth0:            addresses:            \- 192.168.187.180/24            dhcp4: false            gateway4: 192.168.187.1            nameservers:                addresses:                \- 8.8.8.8                \- 1.1.1.1            optional: true    version: 2 |
-| :---- |
 
-## Disable swap, load netfilter kernel modules, and enable IP forwarding
+``` \# This file is generated from information provided by the datasource.  Changes\# to it will not persist across an instance reboot.  To disable cloud-init's\# network configuration capabilities, write a file\# /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg with the following:\#\# network: {config: disabled}network:    ethernets:        eth0:            addresses:            \- 192.168.187.180/24            dhcp4: false            gateway4: 192.168.187.1            nameservers:                addresses:                \- 8.8.8.8                \- 1.1.1.1            optional: true    version: 2 ```
 
-| sudo swapoff \-asudo sed \-i '/ swap / s/^\\(.\*\\)$/\#\\1/g' /etc/fstab cat \<\<EOF | sudo tee /etc/modules-load.d/containerd.conf overlay br\_netfilter EOF sudo modprobe overlay sudo modprobe br\_netfiltercat \<\<EOF | sudo tee /etc/sysctl.d/99-kubernetes-cri.confnet.bridge.bridge-nf-call-iptables  \= 1net.ipv4.ip\_forward                 \= 1net.bridge.bridge-nf-call-ip6tables \= 1EOF\# Apply sysctl params without rebootsudo sysctl \--system sudo reboot  |
-| :---- |
+### Disable swap, load netfilter kernel modules, and enable IP forwarding
 
-## Install containerd, dependencies for kubeadm, and point apt to latest version of kubernetes
+```sudo swapoff \-asudo sed \-i '/ swap / s/^\\(.\*\\)$/\#\\1/g' /etc/fstab cat \<\<EOF | sudo tee /etc/modules-load.d/containerd.conf overlay br\_netfilter EOF sudo modprobe overlay sudo modprobe br\_netfiltercat \<\<EOF | sudo tee /etc/sysctl.d/99-kubernetes-cri.confnet.bridge.bridge-nf-call-iptables  \= 1net.ipv4.ip\_forward                 \= 1net.bridge.bridge-nf-call-ip6tables \= 1EOF\# Apply sysctl params without rebootsudo sysctl \--system sudo reboot ```
 
-| sudo apt-get update sudo apt-get install containerd \-ysudo apt-get install \-y apt-transport-https ca-certificates curl gpg sudo mkdir \-p /etc/apt/keyrings/curl \-fsSL https://pkgs.k8s.io/core:/stable:/v1.34/deb/Release.key | sudo gpg \--dearmor \-o /etc/apt/keyrings/kubernetes-apt-keyring.gpgecho 'deb \[signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg\] https://pkgs.k8s.io/core:/stable:/v1.34/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.listsudo apt-get update |
-| :---- |
+### Install containerd, dependencies for kubeadm, and point apt to latest version of kubernetes
 
-## Install kubeadm
+```sudo apt-get update sudo apt-get install containerd \-ysudo apt-get install \-y apt-transport-https ca-certificates curl gpg sudo mkdir \-p /etc/apt/keyrings/curl \-fsSL https://pkgs.k8s.io/core:/stable:/v1.34/deb/Release.key | sudo gpg \--dearmor \-o /etc/apt/keyrings/kubernetes-apt-keyring.gpgecho 'deb \[signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg\] https://pkgs.k8s.io/core:/stable:/v1.34/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.listsudo apt-get update```
 
-| sudo apt-get install \-y kubelet kubeadm kubectlsudo apt-mark hold kubelet kubeadm kubectlsudo systemctl enable \--now kubeletsudo kubeadm config images pull |
-| :---- |
+### Install kubeadm
 
-## Add kubernetes config to local user profile
+```sudo apt-get install \-y kubelet kubeadm kubectlsudo apt-mark hold kubelet kubeadm kubectlsudo systemctl enable \--now kubeletsudo kubeadm config images pull ```
 
-| mkdir \-p $HOME/.kubesudo cp \-i /etc/kubernetes/admin.conf $HOME/.kube/configsudo chown $(id \-u):$(id \-g) $HOME/.kube/config |
-| :---- |
+### Add kubernetes config to local user profile
 
-## Join worker nodes
+```mkdir \-p $HOME/.kubesudo cp \-i /etc/kubernetes/admin.conf $HOME/.kube/configsudo chown $(id \-u):$(id \-g) $HOME/.kube/config```
 
-| sudo kubeadm join 192.168.187.180:6443 \--token 5woo70.y8afzq79unzldcdk \--discovery-token-ca-cert-hash sha256:0ea7bae9cc85decbdd41ef3d69403469e3a52ef7e6b1e24338fd03a951e73451 |
-| :---- |
+### Join worker nodes
 
-# RBAC
+```sudo kubeadm join 192.168.187.180:6443 \--token 5woo70.y8afzq79unzldcdk \--discovery-token-ca-cert-hash sha256:0ea7bae9cc85decbdd41ef3d69403469e3a52ef7e6b1e24338fd03a951e73451```
 
-## Create dev user account
+## RBAC
 
-| mkdir devcertcd devcert/openssl genrsa \-out dev.key 2048openssl req \-new \-key dev.key \-out dev.csr \--subj "/CN=dev/O=dev/O=example.org"sudo openssl x509 \-req \-CA /etc/kubernetes/pki/ca.crt  \-CAkey /etc/kubernetes/pki/ca.key  \-CAcreateserial \-days 730 \-in dev.csr \-out dev.crtkubectl config set\-credentials dev \--client-certificate=dev.crt \--client-key=dev.key kubectl config set-context dev-k8s \--cluster=kubernetes \--user=dev kubectl config use-context dev-k8s |
-| :---- |
+### Create dev user account
 
-## Role
+```mkdir devcertcd devcert/openssl genrsa \-out dev.key 2048openssl req \-new \-key dev.key \-out dev.csr \--subj "/CN=dev/O=dev/O=example.org"sudo openssl x509 \-req \-CA /etc/kubernetes/pki/ca.crt  \-CAkey /etc/kubernetes/pki/ca.key  \-CAcreateserial \-days 730 \-in dev.csr \-out dev.crtkubectl config set\-credentials dev \--client-certificate=dev.crt \--client-key=dev.key kubectl config set-context dev-k8s \--cluster=kubernetes \--user=dev kubectl config use-context dev-k8s ```
+
+### Role
 
 ns-admin-role.yaml
 
-| apiVersion: rbac.authorization.k8s.io/v1 kind: Role metadata:   name: admin rules: \- apiGroups: \["\*"\]   resources: \["\*"\]   verbs: \["\*"\] |
-| :---- |
+```apiVersion: rbac.authorization.k8s.io/v1 kind: Role metadata:   name: admin rules: \- apiGroups: \["\*"\]   resources: \["\*"\]   verbs: \["\*"\]```
 
-## Rolebinding
+### Rolebinding
 
 dev-admin-rb.yaml
 
-| apiVersion: rbac.authorization.k8s.io/v1 kind: RoleBinding metadata:   name: ns-admin subjects: \- kind: User   user: dev   apiGroup: rbac.authorization.k8s.io roleRef:   kind: Role   name: admin   apiGroup: rbac.authorization.k8s.io |
-| :---- |
+```apiVersion: rbac.authorization.k8s.io/v1 kind: RoleBinding metadata:   name: ns-admin subjects: \- kind: User   user: dev   apiGroup: rbac.authorization.k8s.io roleRef:   kind: Role   name: admin   apiGroup: rbac.authorization.k8s.io```
 
-## Apply Role and Rolebinding
+### Apply Role and Rolebinding
 
-| kubectl create ns teleport-appnamespace/teleport-app createdkubectl apply \-f ns-admin-role.yaml \-n teleport-app kubectl apply \-f dev-admin-rb.yaml \-n teleport-app |
-| :---- |
+```kubectl create ns teleport-appnamespace/teleport-app createdkubectl apply \-f ns-admin-role.yaml \-n teleport-app kubectl apply \-f dev-admin-rb.yaml \-n teleport-app```
 
-# Cert Manager
+## Cert Manager
 
-## Install cert manager
+### Install cert manager
 
-| kubectl apply \-f https://github.com/cert-manager/cert-manager/releases/download/v1.19.1/cert-manager.yaml |
-| :---- |
+```kubectl apply \-f https://github.com/cert-manager/cert-manager/releases/download/v1.19.1/cert-manager.yaml```
 
-## Install ingress controller
+### Install ingress controller
 
-| kubectl create ns ingress-nginx kubectl apply \-f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.13.3/deploy/static/provider/cloud/deploy.yaml |
-| :---- |
+```kubectl create ns ingress-nginx kubectl apply \-f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.13.3/deploy/static/provider/cloud/deploy.yaml```
 
-## Create a staging issuer
+### Create a staging issuer
 
-| apiVersion: cert-manager.io/v1kind: Issuermetadata:  name: letsencrypt-prodspec:  acme:    \# The ACME server URL    server: https://acme-v02.api.letsencrypt.org/directory    \# Email address used for ACME registration    email: grant.voss@gmail.com    \# The ACME certificate profile    profile: tlsserver    \# Name of a secret used to store the ACME account private key    privateKeySecretRef:      name: letsencrypt-prod    \# Enable the HTTP-01 challenge provider    solvers:      \- http01:          ingress:            ingressClassName: nginx |
-| :---- |
+```apiVersion: cert-manager.io/v1kind: Issuermetadata:  name: letsencrypt-prodspec:  acme:    \# The ACME server URL    server: https://acme-v02.api.letsencrypt.org/directory    \# Email address used for ACME registration    email: grant.voss@gmail.com    \# The ACME certificate profile    profile: tlsserver    \# Name of a secret used to store the ACME account private key    privateKeySecretRef:      name: letsencrypt-prod    \# Enable the HTTP-01 challenge provider    solvers:      \- http01:          ingress:            ingressClassName: nginx```
 
-## Create a prod issuer
+### Create a prod issuer
 
-| apiVersion: cert-manager.io/v1kind: Issuermetadata:  name: letsencrypt-prodspec:  acme:    \# The ACME server URL    server: https://acme-v02.api.letsencrypt.org/directory    \# Email address used for ACME registration    email: grant.voss@gmail.com    \# The ACME certificate profile    profile: tlsserver    \# Name of a secret used to store the ACME account private key    privateKeySecretRef:      name: letsencrypt-prod    \# Enable the HTTP-01 challenge provider    solvers:      \- http01:          ingress:            ingressClassName: nginx |
-| :---- |
+```apiVersion: cert-manager.io/v1kind: Issuermetadata:  name: letsencrypt-prodspec:  acme:    \# The ACME server URL    server: https://acme-v02.api.letsencrypt.org/directory    \# Email address used for ACME registration    email: grant.voss@gmail.com    \# The ACME certificate profile    profile: tlsserver    \# Name of a secret used to store the ACME account private key    privateKeySecretRef:      name: letsencrypt-prod    \# Enable the HTTP-01 challenge provider    solvers:      \- http01:          ingress:            ingressClassName: nginx ```
 
-# Metallb
+## Metallb
 
-## Install and apply ippool.yaml and l2advertisement.yaml
+### Install and apply ippool.yaml and l2advertisement.yaml
 
-| kubectl apply \-f https://raw.githubusercontent.com/metallb/metallb/v0.13.7/config/manifests/metallb-native.yaml ippool.yaml apiVersion: metallb.io/v1beta1 kind: IPAddressPool metadata:   name: default-pool   namespace: metallb-system spec:   addresses:   \- 192.168.187.200-192.168.187.220 l2advertisement.yaml apiVersion: metallb.io/v1beta1 kind: L2Advertisement metadata:   name: default   namespace: metallb-system spec:   ipAddressPools:   \- default-pool |
-| :---- |
+```kubectl apply \-f https://raw.githubusercontent.com/metallb/metallb/v0.13.7/config/manifests/metallb-native.yaml ippool.yaml apiVersion: metallb.io/v1beta1 kind: IPAddressPool metadata:   name: default-pool   namespace: metallb-system spec:   addresses:   \- 192.168.187.200-192.168.187.220 l2advertisement.yaml apiVersion: metallb.io/v1beta1 kind: L2Advertisement metadata:   name: default   namespace: metallb-system spec:   ipAddressPools:   \- default-pool ```
 
-# Nginx app (Air gapped)
+## Nginx app (Air gapped)
 
-## Nginx Cert 
+### Nginx Cert 
 
-[nginx-cert.yaml](https://github.com/grizzle-boss/teleport-app/blob/main/nginxapp/nginx-cert.yaml)
+nginx-cert.yaml
 
-```
-apiVersion: v1    
- kind: Secret    
- metadata:      
-   name: nginx-cert    
-   type: kubernetes.io/tls    
- data:      
-   tls.crt: | LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUQwRENDQTFhZ0F3SUJBZ0lTQm9PcmE5TlBnRVZiT010Y3I2NXR0L0ZGTUFvR0NDcUdTTTQ5QkFNRE1ESXgKQ3pBSkJnTlZCQVlUQWxWVE1SWXdGQVlEVlFRS0V3MU1aWFFuY3lCRmJtTnllWEIwTVFzd0NRWURWUVFERXdKRgpPREFlRncweU5URXdNVE13TURFd01qRmFGdzB5TmpBeE1URXdNREV3TWpCYU1DSXhJREFlQmdOVkJBTU1GeW91ClozSmhiblIyYjNOekxtUjFZMnRrYm5NdWIzSm5NSFl3RUFZSEtvWkl6ajBDQVFZRks0RUVBQ0lEWWdBRUlPT24KY1IzQ2lxbWRINDVKbFRmeDJiSVpZSGdMYU1uNjV2U3J5dnBiZFlnY0lHejdxYi8yc3lzdFVkeUViay9GMDJKdQoxZEp2dHZJM2lUdHVpYUhmSVlWRUtsRHdqZWR4RnBsRk9IRncxOW4wKzVaeDdESkxta0kwM1VLVzZRTHZvNElDClBUQ0NBamt3RGdZRFZSMFBBUUgvQkFRREFnZUFNQjBHQTFVZEpRUVdNQlFHQ0NzR0FRVUZCd01CQmdnckJnRUYKQlFjREFqQU1CZ05WSFJNQkFmOEVBakFBTUIwR0ExVWREZ1FXQkJRUmJ2bHdQd1RpUFVkU1VrV2FnNVl5Q0dmNwpZekFmQmdOVkhTTUVHREFXZ0JTUERST2k5aTUrMFZCc014ZzRYVm1PSTNLUnlqQXlCZ2dyQmdFRkJRY0JBUVFtCk1DUXdJZ1lJS3dZQkJRVUhNQUtHRm1oMGRIQTZMeTlsT0M1cExteGxibU55TG05eVp5OHdPUVlEVlIwUkJESXcKTUlJWEtpNW5jbUZ1ZEhadmMzTXVaSFZqYTJSdWN5NXZjbWVDRldkeVlXNTBkbTl6Y3k1a2RXTnJaRzV6TG05eQpaekFUQmdOVkhTQUVEREFLTUFnR0JtZUJEQUVDQVRBdEJnTlZIUjhFSmpBa01DS2dJS0FlaGh4b2RIUndPaTh2ClpUZ3VZeTVzWlc1amNpNXZjbWN2TnpBdVkzSnNNSUlCQlFZS0t3WUJCQUhXZVFJRUFnU0I5Z1NCOHdEeEFIY0EKU1p5YmFkNGRmT3o4TnQ3TmgyU211RnV2Q29lQUdkRlZVdnZwNnluZCtNTUFBQUdaMnh6eGxBQUFCQU1BU0RCRwpBaUVBZ2RHczFiM0J6NW1HT3o1RmZsQWR0dStNdmdHT0pBbEpUTWU2cEgvUUdic0NJUURUUS83ajVRdjdJdEdqCjRJZS84M1pyd0lpME93NUdIM1RWbnhjVlFibWZOZ0IyQU1zNDl4V0pmSVNoUkY5YndkMzd5Vzd5bWxuTlJ3cHAKQllXd3l4VERGRmpuQUFBQm1kc2M4YTRBQUFRREFFY3dSUUlnUjdHOGVIdXhONDFFMldqVnRIS1VsajBLc2ZhNwozMFBCYnEyZmtPZXoxOGdDSVFEbXo5Zk5GL0dkQ1hJeTRCK205VmVzUTAvVktMWVBGY0hpUTEvK3ZwaXBqREFLCkJnZ3Foa2pPUFFRREF3Tm9BREJsQWpBc3FPU0hWT3ZjT2lPam9ONXIzQVZmYjVTaGdkcjlDb1B0TjNDMm91SngKTzBXM0l1cHNqODZ1RHd3YVFtRGJHK0lDTVFDdDh1aWlmNFo0ektGeXRsUkRlOHh5TjNHU2FLUVEvazhqaUlISgpFZ1Q4bEZ6WHg3bDBGV29LOVA3NVo2NWZoOHc9Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0KLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVWakNDQWo2Z0F3SUJBZ0lRWTVXVFk4Sk9jSUp4V1JpL3c5ZnRWakFOQmdrcWhraUc5dzBCQVFzRkFEQlAKTVFzd0NRWURWUVFHRXdKVlV6RXBNQ2NHQTFVRUNoTWdTVzUwWlhKdVpYUWdVMlZqZFhKcGRIa2dVbVZ6WldGeQpZMmdnUjNKdmRYQXhGVEFUQmdOVkJBTVRERWxUVWtjZ1VtOXZkQ0JZTVRBZUZ3MHlOREF6TVRNd01EQXdNREJhCkZ3MHlOekF6TVRJeU16VTVOVGxhTURJeEN6QUpCZ05WQkFZVEFsVlRNUll3RkFZRFZRUUtFdzFNWlhRbmN5QkYKYm1OeWVYQjBNUXN3Q1FZRFZRUURFd0pGT0RCMk1CQUdCeXFHU000OUFnRUdCU3VCQkFBaUEySUFCTkZsOGw3YwpTN1FNQXB6U3N2cnU2V3lyT3E0NG9mVFVPVEl6eFVMVXpETU1OTWNoSUpCd1hPaGlMeHh4czBMWGViNUdEY0hiClI2RVRvTWZmZ1Naak85U05IZlk5Z2pNeTl2UXI1L1dXT3JRVFp4aDdhejZOU05ucTN1MnViVDZIVEtPQitEQ0IKOVRBT0JnTlZIUThCQWY4RUJBTUNBWVl3SFFZRFZSMGxCQll3RkFZSUt3WUJCUVVIQXdJR0NDc0dBUVVGQndNQgpNQklHQTFVZEV3RUIvd1FJTUFZQkFmOENBUUF3SFFZRFZSME9CQllFRkk4TkU2TDJMbjdSVUd3ekdEaGRXWTRqCmNwSEtNQjhHQTFVZEl3UVlNQmFBRkhtMFdlWjd0dVhrQVhPQUNJaklHbGoyNlp0dU1ESUdDQ3NHQVFVRkJ3RUIKQkNZd0pEQWlCZ2dyQmdFRkJRY3dBb1lXYUhSMGNEb3ZMM2d4TG1rdWJHVnVZM0l1YjNKbkx6QVRCZ05WSFNBRQpEREFLTUFnR0JtZUJEQUVDQVRBbkJnTlZIUjhFSURBZU1CeWdHcUFZaGhab2RIUndPaTh2ZURFdVl5NXNaVzVqCmNpNXZjbWN2TUEwR0NTcUdTSWIzRFFFQkN3VUFBNElDQVFCbkUwaEdJTktzQ1lXaTBYeDF5Z3hENXFpaEVqWjAKUkkzdFRaejF3dUFUSDNad1lQSXA5N2tXRWF5YW5EMWowY0RoSVl6eTRDa0RvMmpCOEQ1dDBhNnpaV3pscjk4ZApBUUZOaDh1S0prSUhkTFNoeStuVXllWnhjNWJOZU1wMUx1MGdTekU0TWNxZm1OTXZJcGVpd1dTWU85dzgyT2I4Cm90dlhjTzJKVVlpM3N2SElXUm0zKzcwN0RVYkw1MVhNY1kyaVpkbENxNFdhOW5idWszV1RVNGdyNkxZOE16VkEKYURRRzIrNFUzZUo2cVVGMTBiQm5SMXV1VnlEWXM5Umhyd3VjUlZuZnVEajI5Q01MVHNwbE01ZjV3U1Y1aFVwbQpVd3AvdlY3TTR3NGFHdW50NzRrb1g3MW40RWRhZ0NzTC9ZazUrbUFRVTArdHVlMEpPZkFWL1I2dDFrK1hrOXMyCkhNUUZlb3hwcGZ6QVZDMDRGZEc5TStBQzJKV3htRlN0NkJDdWgzQ0VleTNmRTUyUXJqOVlNNzVydHZJanNtLzEKSGwrdS8vV3F4bnUxWlE0anBhK1ZwdVppR09sV3JxU1A5ZW9nZE9oQ0dpc255ZXdXSndSUU9xSzE2d2lHeVplUgp4cy9CZWt3NjV2d1NJYVZrQnJ1UGlUZk1PbzBaaDRnVmE4L3FKZ01iSmJ5cnd3Rzk3ei9QUmdtTEtDRGw4ejNkCnRBMFo3cXE3ZnRhMEdsMjR1eXVCMDVkcUk1SjFMdkF6S3VXZElqVDF0UDhxQ294U0UveHBpeDhoWDJkdDNoKy8KanVqVWdGUEZaMEVWWjB4U3lCTlJGM01ib0dabllYRlV4cE5qVFdQS3BhZ0RISlFtcXJBY0RtV0puTXNGWTNqUwp1MWlndjNPZWZuV2pTUT09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0=      
-   tls.key: | LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JRzJBZ0VBTUJBR0J5cUdTTTQ5QWdFR0JTdUJCQUFpQklHZU1JR2JBZ0VCQkRCL0c0a2JoY3BxWG0ycDcyUVEKajRpckZDMWlXL0NFemhobUxXd3BzUzc1YVNkSTAvbmwvbjJZcThWRkZhZUtGQWVoWkFOaUFBUWc0NmR4SGNLSwpxWjBmamttVk4vSFpzaGxnZUF0b3lmcm05S3ZLK2x0MWlCd2diUHVwdi9hekt5MVIzSVJ1VDhYVFltcN1YwbSsyCjhqZUpPMjZKb2Q4aGhVUXFVUENONTNFV21VVTRjWERYMmZUN2xuSHNNa3VhUWpUZFFwYnBBdTg9Ci0tLS0tRU5EIFBSSVZBVEUgS1VZL
-```
+```apiVersion: v1    kind: Secret    metadata:      name: nginx-cert    type: kubernetes.io/tls    data:      tls.crt: | LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUQwRENDQTFhZ0F3SUJBZ0lTQm9PcmE5TlBnRVZiT010Y3I2NXR0L0ZGTUFvR0NDcUdTTTQ5QkFNRE1ESXgKQ3pBSkJnTlZCQVlUQWxWVE1SWXdGQVlEVlFRS0V3MU1aWFFuY3lCRmJtTnllWEIwTVFzd0NRWURWUVFERXdKRgpPREFlRncweU5URXdNVE13TURFd01qRmFGdzB5TmpBeE1URXdNREV3TWpCYU1DSXhJREFlQmdOVkJBTU1GeW91ClozSmhiblIyYjNOekxtUjFZMnRrYm5NdWIzSm5NSFl3RUFZSEtvWkl6ajBDQVFZRks0RUVBQ0lEWWdBRUlPT24KY1IzQ2lxbWRINDVKbFRmeDJiSVpZSGdMYU1uNjV2U3J5dnBiZFlnY0lHejdxYi8yc3lzdFVkeUViay9GMDJKdQoxZEp2dHZJM2lUdHVpYUhmSVlWRUtsRHdqZWR4RnBsRk9IRncxOW4wKzVaeDdESkxta0kwM1VLVzZRTHZvNElDClBUQ0NBamt3RGdZRFZSMFBBUUgvQkFRREFnZUFNQjBHQTFVZEpRUVdNQlFHQ0NzR0FRVUZCd01CQmdnckJnRUYKQlFjREFqQU1CZ05WSFJNQkFmOEVBakFBTUIwR0ExVWREZ1FXQkJRUmJ2bHdQd1RpUFVkU1VrV2FnNVl5Q0dmNwpZekFmQmdOVkhTTUVHREFXZ0JTUERST2k5aTUrMFZCc014ZzRYVm1PSTNLUnlqQXlCZ2dyQmdFRkJRY0JBUVFtCk1DUXdJZ1lJS3dZQkJRVUhNQUtHRm1oMGRIQTZMeTlsT0M1cExteGxibU55TG05eVp5OHdPUVlEVlIwUkJESXcKTUlJWEtpNW5jbUZ1ZEhadmMzTXVaSFZqYTJSdWN5NXZjbWVDRldkeVlXNTBkbTl6Y3k1a2RXTnJaRzV6TG05eQpaekFUQmdOVkhTQUVEREFLTUFnR0JtZUJEQUVDQVRBdEJnTlZIUjhFSmpBa01DS2dJS0FlaGh4b2RIUndPaTh2ClpUZ3VZeTVzWlc1amNpNXZjbWN2TnpBdVkzSnNNSUlCQlFZS0t3WUJCQUhXZVFJRUFnU0I5Z1NCOHdEeEFIY0EKU1p5YmFkNGRmT3o4TnQ3TmgyU211RnV2Q29lQUdkRlZVdnZwNnluZCtNTUFBQUdaMnh6eGxBQUFCQU1BU0RCRwpBaUVBZ2RHczFiM0J6NW1HT3o1RmZsQWR0dStNdmdHT0pBbEpUTWU2cEgvUUdic0NJUURUUS83ajVRdjdJdEdqCjRJZS84M1pyd0lpME93NUdIM1RWbnhjVlFibWZOZ0IyQU1zNDl4V0pmSVNoUkY5YndkMzd5Vzd5bWxuTlJ3cHAKQllXd3l4VERGRmpuQUFBQm1kc2M4YTRBQUFRREFFY3dSUUlnUjdHOGVIdXhONDFFMldqVnRIS1VsajBLc2ZhNwozMFBCYnEyZmtPZXoxOGdDSVFEbXo5Zk5GL0dkQ1hJeTRCK205VmVzUTAvVktMWVBGY0hpUTEvK3ZwaXBqREFLCkJnZ3Foa2pPUFFRREF3Tm9BREJsQWpBc3FPU0hWT3ZjT2lPam9ONXIzQVZmYjVTaGdkcjlDb1B0TjNDMm91SngKTzBXM0l1cHNqODZ1RHd3YVFtRGJHK0lDTVFDdDh1aWlmNFo0ektGeXRsUkRlOHh5TjNHU2FLUVEvazhqaUlISgpFZ1Q4bEZ6WHg3bDBGV29LOVA3NVo2NWZoOHc9Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0KLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVWakNDQWo2Z0F3SUJBZ0lRWTVXVFk4Sk9jSUp4V1JpL3c5ZnRWakFOQmdrcWhraUc5dzBCQVFzRkFEQlAKTVFzd0NRWURWUVFHRXdKVlV6RXBNQ2NHQTFVRUNoTWdTVzUwWlhKdVpYUWdVMlZqZFhKcGRIa2dVbVZ6WldGeQpZMmdnUjNKdmRYQXhGVEFUQmdOVkJBTVRERWxUVWtjZ1VtOXZkQ0JZTVRBZUZ3MHlOREF6TVRNd01EQXdNREJhCkZ3MHlOekF6TVRJeU16VTVOVGxhTURJeEN6QUpCZ05WQkFZVEFsVlRNUll3RkFZRFZRUUtFdzFNWlhRbmN5QkYKYm1OeWVYQjBNUXN3Q1FZRFZRUURFd0pGT0RCMk1CQUdCeXFHU000OUFnRUdCU3VCQkFBaUEySUFCTkZsOGw3YwpTN1FNQXB6U3N2cnU2V3lyT3E0NG9mVFVPVEl6eFVMVXpETU1OTWNoSUpCd1hPaGlMeHh4czBMWGViNUdEY0hiClI2RVRvTWZmZ1Naak85U05IZlk5Z2pNeTl2UXI1L1dXT3JRVFp4aDdhejZOU05ucTN1MnViVDZIVEtPQitEQ0IKOVRBT0JnTlZIUThCQWY4RUJBTUNBWVl3SFFZRFZSMGxCQll3RkFZSUt3WUJCUVVIQXdJR0NDc0dBUVVGQndNQgpNQklHQTFVZEV3RUIvd1FJTUFZQkFmOENBUUF3SFFZRFZSME9CQllFRkk4TkU2TDJMbjdSVUd3ekdEaGRXWTRqCmNwSEtNQjhHQTFVZEl3UVlNQmFBRkhtMFdlWjd0dVhrQVhPQUNJaklHbGoyNlp0dU1ESUdDQ3NHQVFVRkJ3RUIKQkNZd0pEQWlCZ2dyQmdFRkJRY3dBb1lXYUhSMGNEb3ZMM2d4TG1rdWJHVnVZM0l1YjNKbkx6QVRCZ05WSFNBRQpEREFLTUFnR0JtZUJEQUVDQVRBbkJnTlZIUjhFSURBZU1CeWdHcUFZaGhab2RIUndPaTh2ZURFdVl5NXNaVzVqCmNpNXZjbWN2TUEwR0NTcUdTSWIzRFFFQkN3VUFBNElDQVFCbkUwaEdJTktzQ1lXaTBYeDF5Z3hENXFpaEVqWjAKUkkzdFRaejF3dUFUSDNad1lQSXA5N2tXRWF5YW5EMWowY0RoSVl6eTRDa0RvMmpCOEQ1dDBhNnpaV3pscjk4ZApBUUZOaDh1S0prSUhkTFNoeStuVXllWnhjNWJOZU1wMUx1MGdTekU0TWNxZm1OTXZJcGVpd1dTWU85dzgyT2I4Cm90dlhjTzJKVVlpM3N2SElXUm0zKzcwN0RVYkw1MVhNY1kyaVpkbENxNFdhOW5idWszV1RVNGdyNkxZOE16VkEKYURRRzIrNFUzZUo2cVVGMTBiQm5SMXV1VnlEWXM5Umhyd3VjUlZuZnVEajI5Q01MVHNwbE01ZjV3U1Y1aFVwbQpVd3AvdlY3TTR3NGFHdW50NzRrb1g3MW40RWRhZ0NzTC9ZazUrbUFRVTArdHVlMEpPZkFWL1I2dDFrK1hrOXMyCkhNUUZlb3hwcGZ6QVZDMDRGZEc5TStBQzJKV3htRlN0NkJDdWgzQ0VleTNmRTUyUXJqOVlNNzVydHZJanNtLzEKSGwrdS8vV3F4bnUxWlE0anBhK1ZwdVppR09sV3JxU1A5ZW9nZE9oQ0dpc255ZXdXSndSUU9xSzE2d2lHeVplUgp4cy9CZWt3NjV2d1NJYVZrQnJ1UGlUZk1PbzBaaDRnVmE4L3FKZ01iSmJ5cnd3Rzk3ei9QUmdtTEtDRGw4ejNkCnRBMFo3cXE3ZnRhMEdsMjR1eXVCMDVkcUk1SjFMdkF6S3VXZElqVDF0UDhxQ294U0UveHBpeDhoWDJkdDNoKy8KanVqVWdGUEZaMEVWWjB4U3lCTlJGM01ib0dabllYRlV4cE5qVFdQS3BhZ0RISlFtcXJBY0RtV0puTXNGWTNqUwp1MWlndjNPZWZuV2pTUT09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0=      tls.key: | LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JRzJBZ0VBTUJBR0J5cUdTTTQ5QWdFR0JTdUJCQUFpQklHZU1JR2JBZ0VCQkRCL0c0a2JoY3BxWG0ycDcyUVEKajRpckZDMWlXL0NFemhobUxXd3BzUzc1YVNkSTAvbmwvbjJZcThWRkZhZUtGQWVoWkFOaUFBUWc0NmR4SGNLSwpxWjBmamttVk4vSFpzaGxnZUF0b3lmcm05S3ZLK2x0MWlCd2diUHVwdi9hekt5MVIzSVJ1VDhYVFltN1YwbSsyCjhqZUpPMjZKb2Q4aGhVUXFVUENONTNFV21VVTRjWERYMmZUN2xuSHNNa3VhUWpUZFFwYnBBdTg9Ci0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0=```
 
-## Nginx app manifest
+### Nginx app manifest
 
 nginx-app.yaml
 
-| apiVersion: apps/v1kind: Deploymentmetadata:  name: nginx-app  labels:    app: nginx-appspec:  replicas: 1  selector:    matchLabels:      app: nginx-app  template:    metadata:       labels:        app: nginx-app        spec:      volumes:        \- name: tls-volume          secret:            secretName: nginx-cert        \- name: nginx-config-volume          configMap:            name: custom-nginx-config            \- name: nginx-index-volume          configMap:            name: nginx-index      containers:        \- name: nginx          image: nginx:latest           volumeMounts:            \- name: tls-volume              mountPath: /etc/nginx/ssl              readOnly: true            \- name: nginx-config-volume              mountPath: /etc/nginx/nginx.conf              subPath: nginx.conf            \- name: nginx-index-volume              mountPath: /usr/share/nginx/html/index.html              subPath: index.html |
-| :---- |
+```apiVersion: apps/v1kind: Deploymentmetadata:  name: nginx-app  labels:    app: nginx-appspec:  replicas: 1  selector:    matchLabels:      app: nginx-app  template:    metadata:       labels:        app: nginx-app        spec:      volumes:        \- name: tls-volume          secret:            secretName: nginx-cert        \- name: nginx-config-volume          configMap:            name: custom-nginx-config            \- name: nginx-index-volume          configMap:            name: nginx-index      containers:        \- name: nginx          image: nginx:latest           volumeMounts:            \- name: tls-volume              mountPath: /etc/nginx/ssl              readOnly: true            \- name: nginx-config-volume              mountPath: /etc/nginx/nginx.conf              subPath: nginx.conf            \- name: nginx-index-volume              mountPath: /usr/share/nginx/html/index.html              subPath: index.html ```
 
-## Nginx custom index.html config
+### Nginx custom index.html config
 
-| apiVersion: v1kind: ConfigMapmetadata:  name: nginx-indexdata:  index.html: |    \<\!DOCTYPE html\>    \<html\>    \<head\>      \<title\>Welcome to Teleport App Page\!\</title\>    \</head\>    \<body\>      \<h1\>Hello World\!\</h1\>      \<p\>Certs backed by configmap\</p\>    \</body\>    \</html\> |
-| :---- |
+```apiVersion: v1kind: ConfigMapmetadata:  name: nginx-indexdata:  index.html: |    \<\!DOCTYPE html\>    \<html\>    \<head\>      \<title\>Welcome to Teleport App Page\!\</title\>    \</head\>    \<body\>      \<h1\>Hello World\!\</h1\>      \<p\>Certs backed by configmap\</p\>    \</body\>    \</html\> ```
 
-## Nginx custom config
+### Nginx custom config
 
-|     apiVersion: v1    kind: ConfigMap    metadata:      name: custom-nginx-config      namespace: teleport-app     data:      nginx.conf: |-        user nginx;        worker\_processes auto;        events {            worker\_connections 1024;        }        http {            include /etc/nginx/mime.types;            default\_type application/octet-stream;            sendfile on;            keepalive\_timeout 65;                     server {                listen 443 ssl;                server\_name yourdomain.com;                 root /usr/share/nginx/html;                ssl\_certificate /etc/nginx/ssl/tls.crt;                ssl\_certificate\_key /etc/nginx/ssl/tls.key;                }            } |
-| :---- |
+```apiVersion: v1    kind: ConfigMap    metadata:      name: custom-nginx-config      namespace: teleport-app     data:      nginx.conf: |-        user nginx;        worker\_processes auto;        events {            worker\_connections 1024;        }        http {            include /etc/nginx/mime.types;            default\_type application/octet-stream;            sendfile on;            keepalive\_timeout 65;                     server {                listen 443 ssl;                server\_name yourdomain.com;                 root /usr/share/nginx/html;                ssl\_certificate /etc/nginx/ssl/tls.crt;                ssl\_certificate\_key /etc/nginx/ssl/tls.key;                }            }```
 
-## Nginx Service
+### Nginx Service
 
 Nginx-svc.yaml
 
-| apiVersion: v1kind: Servicemetadata:  name: nginx-servicespec:  selector:    app: nginx-app  ports:    \- protocol: TCP      port: 443      targetPort: 443  type: LoadBalancer |
-| :---- |
+```apiVersion: v1kind: Servicemetadata:  name: nginx-servicespec:  selector:    app: nginx-app  ports:    \- protocol: TCP      port: 443      targetPort: 443  type: LoadBalancer ```
 
-# Nginx App (Cert manager)
+## Nginx App (Cert manager)
 
-## Nginx app manifest
+### Nginx app manifest
 
-| apiVersion: apps/v1kind: Deploymentmetadata:  name: nginx-app-cm  labels:    app: nginx-app-cmspec:  replicas: 1  selector:    matchLabels:      app: nginx-app-cm  template:    metadata:       labels:        app: nginx-app-cm        spec:      volumes:        \- name: nginx-index-volume          configMap:            name: nginx-index-cm      containers:        \- name: nginx          image: nginx:latest           volumeMounts:            \- name: nginx-index-volume              mountPath: /usr/share/nginx/html/index.html              subPath: index.html |
-| :---- |
+```apiVersion: apps/v1kind: Deploymentmetadata:  name: nginx-app-cm  labels:    app: nginx-app-cmspec:  replicas: 1  selector:    matchLabels:      app: nginx-app-cm  template:    metadata:       labels:        app: nginx-app-cm        spec:      volumes:        \- name: nginx-index-volume          configMap:            name: nginx-index-cm      containers:        \- name: nginx          image: nginx:latest           volumeMounts:            \- name: nginx-index-volume              mountPath: /usr/share/nginx/html/index.html              subPath: index.html ```
 
-## Nginx custom index.html
+### Nginx custom index.html
 
-| apiVersion: v1kind: ConfigMapmetadata:  name: nginx-index-cmdata:  index.html: |    \<\!DOCTYPE html\>    \<html\>    \<head\>      \<title\>Welcome to Teleport App Page\!\</title\>    \</head\>    \<body\>      \<h1\>Hello World\!\</h1\>      \<p\>Certs configured by Cert Manager\</p\>    \</body\>    \</html\> |
-| :---- |
+```apiVersion: v1kind: ConfigMapmetadata:  name: nginx-index-cmdata:  index.html: |    \<\!DOCTYPE html\>    \<html\>    \<head\>      \<title\>Welcome to Teleport App Page\!\</title\>    \</head\>    \<body\>      \<h1\>Hello World\!\</h1\>      \<p\>Certs configured by Cert Manager\</p\>    \</body\>    \</html\> ```
 
-## Nginx Service
+### Nginx Service
 
-| apiVersion: v1kind: Servicemetadata:  name: nginx-service-cmspec:  selector:    app: nginx-app-cm  ports:    \- protocol: TCP      port: 80       targetPort: 80 |
-| :---- |
+```apiVersion: v1kind: Servicemetadata:  name: nginx-service-cmspec:  selector:    app: nginx-app-cm  ports:    \- protocol: TCP      port: 80       targetPort: 80 ```
 
-## Nginx Ingress with cert manager
+### Nginx Ingress with cert manager
 
-| apiVersion: networking.k8s.io/v1kind: Ingressmetadata:  name: teleport-ingress-cm  annotations:     cert-manager.io/issuer: "letsencrypt-staging"spec:  ingressClassName: nginx  tls:  \- hosts:    \- teleport-app.grantvoss.duckdns.org    secretName: quickstart-example-tls  rules:  \- host: teleport-app.grantvoss.duckdns.org    http:      paths:      \- path: /        pathType: Prefix        backend:          service:            name: nginx-service-cm            port:              number: 80 |
-| :---- |
+```apiVersion: networking.k8s.io/v1kind: Ingressmetadata:  name: teleport-ingress-cm  annotations:     cert-manager.io/issuer: "letsencrypt-staging"spec:  ingressClassName: nginx  tls:  \- hosts:    \- teleport-app.grantvoss.duckdns.org    secretName: quickstart-example-tls  rules:  \- host: teleport-app.grantvoss.duckdns.org    http:      paths:      \- path: /        pathType: Prefix        backend:          service:            name: nginx-service-cm            port:              number: 80 ```
 
-# Git repo
+## Git repo
 
-## Create new repo on Github
+### Create new repo on Github
 
-## Clone empty repo and send initial commit to Github
+### Clone empty repo and send initial commit to Github
 
-| git clone git@github.com:grizzle-boss/teleport-app.gitcd teleport-appecho "\# teleport-app" \>\> README.mdgit add README.mdgit commit \-m "first commit"git branch \-M maingit remote add origin git@github.com:grizzle-boss/teleport-app.gitgit push \-u origin main |
-| :---- |
+```git clone git@github.com:grizzle-boss/teleport-app.gitcd teleport-appecho "\# teleport-app" \>\> README.mdgit add README.mdgit commit \-m "first commit"git branch \-M maingit remote add origin git@github.com:grizzle-boss/teleport-app.gitgit push \-u origin main ```
 
-## Copy all yaml manifests to teleport-app and use new repo
+### Copy all yaml manifests to teleport-app and use new repo
 
-| git add \*git commit \-m "nginx-app-cm added"git push \-u origin main |
-| :---- |
+```git add \*git commit \-m "nginx-app-cm added"git push \-u origin main ```
 
-# ArgoCD
+## ArgoCD
 
-## Install ArgoCD, update agro svc to use LB and update the admin password
+### Install ArgoCD, update agro svc to use LB and update the admin password
 
-| kubectl create namespace argocdkubectl config use-context kubernetes-admin@kubernetes kubectl apply \-n argocd \-f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml kubectl patch svc argocd-server \-n argocd \-p '{"spec": {"type": "LoadBalancer"}}' kubectl get svc argocd-server \-n argocd \-o=jsonpath='{.status.loadBalancer.ingress\[0\].ip}' brew install argocd argocd admin initial-password \-n argocd argocd login 192.168.187.202 argocd account update-password |
-| :---- |
+```kubectl create namespace argocdkubectl config use-context kubernetes-admin@kubernetes kubectl apply \-n argocd \-f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml kubectl patch svc argocd-server \-n argocd \-p '{"spec": {"type": "LoadBalancer"}}' kubectl get svc argocd-server \-n argocd \-o=jsonpath='{.status.loadBalancer.ingress\[0\].ip}' brew install argocd argocd admin initial-password \-n argocd argocd login 192.168.187.202 argocd account update-password ```
 
-## Configure app in ArgoCD UI
+### Configure app in ArgoCD UI
 
 ![][image1]  
 ![][image2]
