@@ -8,10 +8,10 @@ spec:
   ingressClassName: nginx
   tls:
   - hosts:
-    - teleport-app.grantvoss.duckdns.org
+    - grantvoss.duckdns.org
     secretName: teleport-app-duckdns-tls
   rules:
-  - host: teleport-app.grantvoss.duckdns.org
+  - host: grantvoss.duckdns.org
     http:
       paths:
       - path: /
